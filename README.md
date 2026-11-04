@@ -106,46 +106,8 @@ Para escalar el sistema y soportar múltiples clientes concurrentes sin que el
 servidor colapse, se rediseñó la arquitectura usando **sockets TCP**, un 
 **balanceador de carga** y **servidores workers con pools de hilos**.
 
-### 📊 Arquitectura del Sistema
+### Diagrama Sistema Distribuido
 
-```mermaid
-graph TD
-    %% Clientes
-    C1[Cliente Móvil] -->|TCP| LB
-    C2[Cliente Web] -->|TCP| LB
-    C3[Cliente Consola Python] -->|TCP| LB
-
-    %% Balanceador y Servidores Web
-    LB[Balanceador de Carga (Nginx/Simulado)] -->|Round Robin| W1
-    LB -->|Round Robin| W2
-    LB -->|Round Robin| W3
-
-    %% Servidores y Hilos
-    subgraph Servidores_Workers [Servidores Workers]
-        W1[Worker 1]
-        W2[Worker 2]
-        W3[Worker 3]
-        
-        W1 --- T1((Pool de Hilos))
-        W2 --- T2((Pool de Hilos))
-        W3 --- T3((Pool de Hilos))
-    end
-
-    %% Cola de Mensajes
-    W1 <-->|Publicar/Consumir| MQ[(Cola de Mensajes - RabbitMQ teórico)]
-    W2 <-->|Publicar/Consumir| MQ
-    W3 <-->|Publicar/Consumir| MQ
-
-    %% Almacenamiento
-    W1 -->|Lectura/Escritura| DB[(PostgreSQL)]
-    W2 -->|Lectura/Escritura| DB
-    W3 -->|Lectura/Escritura| DB
-    
-    W1 -->|Archivos| S3[(S3 Bucket)]
-    W2 -->|Archivos| S3
-    W3 -->|Archivos| S3
-```
-
-
+<img src="" width="" height="" alt="diagrama"/>
 
 
