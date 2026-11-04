@@ -1,4 +1,4 @@
-<img src="https://i.ibb.co/VYkx7wHV/ifts29-Logo.png" width="80" height="80" alt="ifts-29"/>
+<img src="https://github.com/elavincho/PFO3_Redes/blob/master/img/ifts29.png" width="80" height="80" alt="ifts-29"/>
 
 # Programación sobre Redes
 
