@@ -2,20 +2,37 @@
 
 # Programación sobre Redes
 
-## Práctica Formativa Obligatoria 2
+## Práctica Formativa Obligatoria 3
 
-## Sistema de Gestión de Tareas con API y Base de Datos
+## Rediseño como Sistema Distribuido (Cliente-Servidor). Transformar el sistema en una arquitectura distribuida usando sockets.
 
-API REST desarrollada con **Flask** y **SQLite** para registrar usuarios, iniciar
-sesión y consultar tareas.
+### ¿Cómo funciona la arquitectura?
+
+**Clientes:** Envían tareas a través de la red usando sockets TCP al puerto 8080.
+
+**Balanceador de Carga:** Actúa como la "puerta de entrada" (similar a Nginx o HAProxy). Utiliza un algoritmo Round Robin (turnos) para repartir equitativamente las peticiones entrantes entre los workers disponibles.
+
+Esto evita que un solo servidor colapse si recibe demasiadas peticiones.
+
+**Servidores Workers:** Cada worker escucha en un puerto distinto (Ej. 5001, 5002). Cuando reciben una tarea, no la procesan en el hilo principal. En su lugar, la delegan a un Pool de Hilos (ThreadPoolExecutor). Esto permite que un worker atienda múltiples tareas en paralelo.
+
+**Cola de Mensajes (Concepto Teórico - RabbitMQ):** En un entorno real, si una tarea es muy pesada, el worker la publica en RabbitMQ. Otro worker "libre" consume el mensaje y lo procesa. Esto se llama comunicación asíncrona. En nuestra implementación local, esto se simula mediante hilos concurrentes para no requerir la instalación de RabbitMQ.
+
+**Almacenamiento (Concepto Teórico - PostgreSQL / S3):** En lugar de usar un único archivo SQLite, los workers consultarían una base de datos centralizada (PostgreSQL) y guardarían archivos pesados (PDFs, imágenes) en un bucket S3.
+
+
+
+
+
+
 
 ---
 
 ## Instalación
 
 ```bash
-git clone https://github.com/elavincho/PFO2_Redes.git
-cd PFO2_Redes
+git clone https://github.com/elavincho/PFO3_Redes.git
+cd PFO3_Redes
 python -m venv venv
 ```
 ## Activar el entorno virtual:
@@ -40,156 +57,95 @@ pip install flask requests
 
 ## Ejecución
 
-  **1. Levantar el servidor:**
+  **Utilizaremos 4 terminales.**
+
+  **1. Levantar el servidor (worker 1):**
 
 ```bash
-python servidor.py
+python worker_socket.py 5001
 ```
 
-<img src="https://github.com/elavincho/PFO2_Redes/blob/master/img/servidor_consola.png" width="" height="" alt="servidor_consola"/>
+<img src="https://github.com/elavincho/PFO3_Redes/blob/master/img/worker_1.png" width="" height="" alt="worker_1"/>
 
-  - El Servidor se inicia en http://127.0.0.1:5000.
+  - El Servidor se inicia en http://127.0.0.1:5001.
 
-  **2. En otra terminal (con el venv activado), ejecutar el cliente:**
+**2. Levantar el servidor (worker 2):**
+
+```bash
+python worker_socket.py 5002
+```
+
+<img src="https://github.com/elavincho/PFO3_Redes/blob/master/img/worker_2.png" width="" height="" alt="worker_2"/>
+
+  - El Servidor se inicia en http://127.0.0.1:5002.
+
+  **3. Iniciamos el Balanceador**
+
+```bash
+python balanceador.py
+```
+
+<img src="https://github.com/elavincho/PFO3_Redes/blob/master/img/balanceador%20de%20carga.png" width="" height="" alt="balanceador"/>
+
+- Balanceador escuchando en http://127.0.0.1:8080.
+
+**4. Iniciamos el cliente**
 
 ```bash
 python cliente.py
 ```
 
-<img src="https://github.com/elavincho/PFO2_Redes/blob/master/img/cliente_consola.png" width="" height="" alt="cliente_consola"/>
+<img src="https://github.com/elavincho/PFO3_Redes/blob/master/img/cliente.png" width="" height="" alt="cliente"/>
+
+<img src="https://github.com/elavincho/PFO3_Redes/blob/master/img/cliente_2.png" width="" height="" alt="cliente"/>
 
 
-## Endpoints
+## Parte 2: Rediseño como Sistema Distribuido
 
-### ▶️ Registro por Consola
+Para escalar el sistema y soportar múltiples clientes concurrentes sin que el 
+servidor colapse, se rediseñó la arquitectura usando **sockets TCP**, un 
+**balanceador de carga** y **servidores workers con pools de hilos**.
 
-<img src="https://github.com/elavincho/PFO2_Redes/blob/master/img/registro_consola.png" width="" height="" alt="registro_consola"/>
+### 📊 Arquitectura del Sistema
 
-### ▶️ Registro en el Navegador
+```mermaid
+graph TD
+    %% Clientes
+    C1[Cliente Móvil] -->|TCP| LB
+    C2[Cliente Web] -->|TCP| LB
+    C3[Cliente Consola Python] -->|TCP| LB
 
-<img src="https://github.com/elavincho/PFO2_Redes/blob/master/img/registro_web.png" width="" height="" alt="registro_web"/>
+    %% Balanceador y Servidores Web
+    LB[Balanceador de Carga (Nginx/Simulado)] -->|Round Robin| W1
+    LB -->|Round Robin| W2
+    LB -->|Round Robin| W3
 
-### ▶️ Login por Consola
+    %% Servidores y Hilos
+    subgraph Servidores_Workers [Servidores Workers]
+        W1[Worker 1]
+        W2[Worker 2]
+        W3[Worker 3]
+        
+        W1 --- T1((Pool de Hilos))
+        W2 --- T2((Pool de Hilos))
+        W3 --- T3((Pool de Hilos))
+    end
 
-<img src="https://github.com/elavincho/PFO2_Redes/blob/master/img/iniciar_sesion_consola.png" width="" height="" alt="login_consola"/>
+    %% Cola de Mensajes
+    W1 <-->|Publicar/Consumir| MQ[(Cola de Mensajes - RabbitMQ teórico)]
+    W2 <-->|Publicar/Consumir| MQ
+    W3 <-->|Publicar/Consumir| MQ
 
-### ▶️ Login en el Navegador
-
-<img src="https://github.com/elavincho/PFO2_Redes/blob/master/img/login_web.png" width="" height="" alt="login_web"/>
-
-### ▶️ Tareas por Consola
-
-<img src="https://github.com/elavincho/PFO2_Redes/blob/master/img/tareas_consola.png" width="" height="" alt="login_consola"/>
-
-### ▶️ Tareas en el Navegador
-
-<img src="https://github.com/elavincho/PFO2_Redes/blob/master/img/tareas_web.png" width="" height="" alt="tareas_web"/>
-
-### ▶️ Logout en el Navegador
-
-<img src="https://github.com/elavincho/PFO2_Redes/blob/master/img/logout_web.png" width="" height="" alt="logout_web"/>
-
-
-## Estructura del proyecto
-```bash
-pfo2-tareas/
-├── servidor.py        # API Flask + SQLite
-├── cliente.py         # Cliente de consola
-├── tareas.db          # Base de datos (se genera automáticamente)
-└── README.md
+    %% Almacenamiento
+    W1 -->|Lectura/Escritura| DB[(PostgreSQL)]
+    W2 -->|Lectura/Escritura| DB
+    W3 -->|Lectura/Escritura| DB
+    
+    W1 -->|Archivos| S3[(S3 Bucket)]
+    W2 -->|Archivos| S3
+    W3 -->|Archivos| S3
 ```
 
-## 📋 Respuestas conceptuales
-
-### ✅ ¿Por qué hashear contraseñas?
-
-Hashear las contraseñas es una práctica fundamental de seguridad al construir cualquier sistema que gestione credenciales. Las razones principales son:
-
-**Evita almacenar datos sensibles en texto plano.**
-Si la base de datos es robada, filtrada o mal compartida, un atacante no
-obtiene las contraseñas reales de los usuarios. Solo ve cadenas de hash
-ilegibles e irreversibles.
-
-**Protege a los usuarios que reutilizan contraseñas.**
-Muchas personas usan la misma contraseña para el correo, el banco o redes
-sociales. Si un sistema la guarda en texto plano y se filtra, compromete
-todos los demás servicios del usuario.
-
-**El hash es una función unidireccional.**
-A diferencia del cifrado (que se puede descifrar con una clave), un hash
-no se puede revertir matemáticamente. No existe forma práctica de
-obtener la contraseña original a partir del hash.
-
-**Uso automático de salt.**
-Librerías como Werkzeug (generate_password_hash) aplican un salt
-aleatorio a cada contraseña antes de hashearla. Esto significa que dos
-usuarios con la misma contraseña obtienen hashes completamente distintos,
-lo que impide ataques de tablas precalculadas (rainbow tables).
-
-**Verificación sin conocer la contraseña.**
-El servidor nunca necesita "saber" la contraseña original. Solo compara el
-hash recién calculado con el almacenado usando check_password_hash(). La
-contraseña real nunca toca el disco ni la base de datos.
-
-**Cumplimiento normativo.**
-Regulaciones como GDPR (Europa) o Ley de Protección de Datos
-Personales (Argentina) exigen medidas de seguridad razonables para datos
-sensibles, y el hasheo de contraseñas es una de ellas.
-
-**Conclusión:** hashear contraseñas no es opcional, es un requisito mínimo
-de cualquier sistema que se tome en serio la seguridad de sus usuarios.
-
-## ✅ Ventajas de usar SQLite en este proyecto
-
-SQLite es una base de datos embebida, sin servidor, que se guarda en un
-único archivo. Para un PFO como este, ofrece ventajas claras:
-
-**Cero configuración.**
-No hace falta instalar, administrar ni levantar un servidor de base de
-datos (como MySQL o PostgreSQL). Simplemente se usa el módulo sqlite3 que
-ya viene incluido en Python.
-
-**Portabilidad total.**
-Toda la base de datos es un solo archivo (tareas.db). Se puede
-copiar, mover, respaldar o versionar fácilmente entre equipos.
-
-**Ideal para desarrollo, prototipado y proyectos pequeños.**
-Para un sistema de tareas con pocos usuarios concurrentes, SQLite es más
-que suficiente y evita la sobrecarga de un motor cliente-servidor.
-
-**Sin dependencias externas.**
-No requiere instalar controladores, ni configurar usuarios, puertos o
-permisos del motor. Todo funciona "out of the box".
-
-**Soporta SQL estándar.**
-Permite JOIN, claves foráneas, UNIQUE, transacciones, AUTOINCREMENT,
-etc. Lo que aprendes con SQLite es directamente aplicable a otros motores.
-
-**Rápida para lecturas.**
-Al ser un archivo local, las lecturas son muy veloces y sin latencia de red.
-
-**Integración nativa con Python.**
-El módulo sqlite3 viene en la biblioteca estándar, así que el código es
-simple, limpio y sin capas extra.
-
-**Limitación a tener en cuenta:** SQLite no está pensado para alta
-concurrencia de escritura. Si el proyecto creciera a cientos de usuarios
-simultáneos escribiendo, convendría migrar a PostgreSQL o MySQL. Para un PFO
-académico, es la elección ideal.
-
-##  Capturas de pantalla
-
-### ▶️ Credenciales Invalidas
-
-<img src="https://github.com/elavincho/PFO2_Redes/blob/master/img/credenciales_invalidas_consola.png" width="" height="" alt="registro_consola"/>
-
-### ▶️ Peticiones al Servidor
-
-<img src="https://github.com/elavincho/PFO2_Redes/blob/master/img/servidor_consola_2.png" width="" height="" alt="registro_consola"/>
 
 
 
-
-<img src="https://i.ibb.co/VYkx7wHV/ifts29-Logo.png" width="40" height="40" alt="ifts-29"/>
-
-#### Programación sobre Redes
