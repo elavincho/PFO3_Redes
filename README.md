@@ -108,6 +108,6 @@ servidor colapse, se rediseñó la arquitectura usando **sockets TCP**, un
 
 ### Diagrama Sistema Distribuido
 
-<img src="" width="" height="" alt="diagrama"/>
+<img src="https://github.com/elavincho/PFO3_Redes/blob/master/img/diagrama_sistema_distribuido.jpg" width="" height="" alt="diagrama"/>
 
 
